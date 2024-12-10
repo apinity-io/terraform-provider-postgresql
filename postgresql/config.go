@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 
 	"github.com/blang/semver"
@@ -178,6 +179,7 @@ type Config struct {
 	ApplicationName                 string
 	Timeout                         int
 	ConnectTimeoutSec               int
+	MaxIdletimeout                  time.Duration
 	MaxConns                        int
 	ExpectedVersion                 semver.Version
 	SSLClientCert                   *ClientCertificateConfig
@@ -310,6 +312,7 @@ func (c *Client) Connect() (*DBConnection, error) {
 		// we don't keep opened connection in case of the db has to be dopped in the plan.
 		db.SetMaxIdleConns(0)
 		db.SetMaxOpenConns(c.config.MaxConns)
+		db.SetConnMaxIdleTime(c.config.MaxIdletimeout)
 
 		defaultVersion, _ := semver.Parse(defaultExpectedPostgreSQLVersion)
 		version := &c.config.ExpectedVersion

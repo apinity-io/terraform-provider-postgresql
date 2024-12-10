@@ -3,9 +3,11 @@ package postgresql
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"os"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -23,6 +25,7 @@ import (
 const (
 	defaultProviderMaxOpenConnections = 20
 	defaultExpectedPostgreSQLVersion  = "9.0.0"
+	defaultProviderIdleTimeout        = 0
 )
 
 // Provider returns a terraform.ResourceProvider.
@@ -177,13 +180,19 @@ func Provider() *schema.Provider {
 				Description: "The SSL server root certificate file path. The file must contain PEM encoded data.",
 				Optional:    true,
 			},
-
 			"connect_timeout": {
 				Type:         schema.TypeInt,
 				Optional:     true,
 				DefaultFunc:  schema.EnvDefaultFunc("PGCONNECT_TIMEOUT", 180),
 				Description:  "Maximum wait for connection, in seconds. Zero or not specified means wait indefinitely.",
 				ValidateFunc: validation.IntAtLeast(-1),
+			},
+			"max_connections_idle_timeout" : {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Default:      schema.EnvDefaultFunc("PGCONNECT_IDLE_TIMEOUT", defaultProviderIdleTimeout),
+				Description:  "Maximum time a connection would stay open once there is no activity (idle), 0 or lower means forever.",
+				ValidateFunc: validation.IntAtLeast(0),
 			},
 			"max_connections": {
 				Type:         schema.TypeInt,
@@ -378,6 +387,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		SSLMode:                         sslMode,
 		ApplicationName:                 "Terraform provider",
 		ConnectTimeoutSec:               d.Get("connect_timeout").(int),
+		MaxIdletimeout:                  d.Get("max_connections_idle_timeout").(time.Duration) * time.Second,
 		MaxConns:                        d.Get("max_connections").(int),
 		ExpectedVersion:                 version,
 		SSLRootCertPath:                 d.Get("sslrootcert").(string),
